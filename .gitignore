@@ -1,0 +1,4 @@
+/target
+migrations
+postgres_data
+.env
