@@ -1,10 +1,19 @@
 #[derive(Queryable)]
+#[derive(Debug)]
+#[diesel(table_name = crate::schema::posts)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct PostSimplified {
+    pub title: String,
+    pub body: String,
+}
+#[derive(Queryable)]
+#[derive(Debug)]
 #[diesel(table_name = crate::schema::posts)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Post {
     pub id: i32,
-    pub title: String,
     pub slug: String,
+    pub title: String,
     pub body: String,
 }
 
