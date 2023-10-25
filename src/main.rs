@@ -4,7 +4,7 @@ extern crate diesel;
 pub mod models;
 pub mod schema;
 
-use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{delete, error, get, post, web, App, HttpResponse, HttpServer, Responder};
 use tera::Tera;
 
 use dotenvy::dotenv;
@@ -20,6 +20,15 @@ use diesel::r2d2::{self, ConnectionManager};
 use self::models::{NewPost, NewPostHandler, Post, PostSimplified};
 use self::schema::posts;
 use self::schema::posts::dsl::*;
+
+use futures::StreamExt;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MyObj {
+    title: String,
+    body: String,
+}
 
 #[get("/")]
 async fn index(template_manager: web::Data<tera::Tera>, pool: web::Data<DbPool>) -> impl Responder {
@@ -69,17 +78,24 @@ async fn get_post(
 
             HttpResponse::Ok()
                 .content_type("text/html")
-                .body(template_manager.render("post_template.html", &ctx).unwrap())
+                .body(template_manager.render("read.html", &ctx).unwrap())
         }
         Err(err) => HttpResponse::InternalServerError().body("Error al recibir los datos."),
     }
 }
 
-#[post("/new-post")]
+#[get("/create/{post_id}")]
+async fn create_post(template_manager: web::Data<tera::Tera>) -> impl Responder {
+    let mut ctx = tera::Context::new();
+
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(template_manager.render("create.html", &ctx).unwrap())
+}
+
+#[post("/create")]
 async fn new_post(pool: web::Data<DbPool>, item: web::Json<NewPostHandler>) -> impl Responder {
     let mut conn = pool.get().expect("Error while connecting to DB");
-
-    println!("AQUI {:?}", item);
 
     match web::block(move || Post::create_post(&mut conn, &item)).await {
         Ok(data) => {
@@ -87,6 +103,68 @@ async fn new_post(pool: web::Data<DbPool>, item: web::Json<NewPostHandler>) -> i
             return HttpResponse::Ok().body(format!("{:?}", data));
         }
         Err(err) => HttpResponse::InternalServerError().body("Error al recibir los datos."),
+    }
+}
+
+#[get("/edit/{post_id}")]
+async fn edit_post_template(
+    pool: web::Data<DbPool>,
+    post_id: web::Path<i32>,
+    template_manager: web::Data<tera::Tera>,
+) -> impl Responder {
+    let mut conn = pool.get().expect("Error while connecting to DB");
+    let post_id = post_id.into_inner();
+
+    match web::block(move || posts.filter(id.eq(&post_id)).load::<Post>(&mut conn)).await {
+        Ok(data) => {
+            println!("{:?}", data);
+
+            let data = data.unwrap();
+
+            let mut ctx = tera::Context::new();
+            ctx.insert("post", &data[0]);
+
+            HttpResponse::Ok()
+                .content_type("text/html")
+                .body(template_manager.render("edit.html", &ctx).unwrap())
+        }
+        Err(err) => HttpResponse::InternalServerError().body("Error al recibir los datos."),
+    }
+}
+
+#[post("/edit/{post_id}")]
+async fn edit_post(
+    pool: web::Data<DbPool>,
+    post_id: web::Path<i32>,
+    mut payload: web::Payload,
+) -> impl Responder {
+    const MAX_SIZE: usize = 262_144;
+    let mut conn = pool.get().expect("Error while connecting to DB");
+    let post_id = post_id.into_inner();
+    let mut request_body = web::BytesMut::new();
+    while let Some(chunk) = payload.next().await {
+        let chunk = chunk?;
+        // limit max size of in-memory payload
+        if (request_body.len() + chunk.len()) > MAX_SIZE {
+            return Err(error::ErrorBadRequest("overflow"));
+        }
+        request_body.extend_from_slice(&chunk);
+    }
+    let obj = serde_json::from_slice::<MyObj>(&request_body)?;
+
+    println!(" this is so important {:?}", obj.title);
+
+    match web::block(move || {
+        diesel::update(posts.filter(id.eq(post_id)))
+            .set((title.eq(&obj.title), body.eq(&obj.body)))
+            .get_result::<Post>(&mut conn)
+    })
+    .await
+    {
+        Ok(data) => Ok(HttpResponse::Ok().body(format!("{:?}", data))),
+        Err(_) => Err(error::ErrorInternalServerError(
+            "Error al recibir los datos.",
+        )),
     }
 }
 
@@ -120,6 +198,9 @@ async fn main() -> std::io::Result<()> {
             .service(new_post)
             .service(get_post)
             .service(delete_post)
+            .service(create_post)
+            .service(edit_post_template)
+            .service(edit_post)
             .app_data(web::Data::new(tera))
             .app_data(web::Data::new(pool.clone()))
     })
