@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+<body>
+    <main class="w-screen  px-10 min-h-screen flex justify-center text-center flex-col gap-5 items-center bg-blue-200">
+        <h1 class="text-3xl font-bold mb-4">Table</h1>
+        <table class="min-w-full bg-white border border-gray-300" border="1">
+            <thead>
+                <tr>
+                    <th class="py-2 px-4 border-b" >Title</th>
+                    <th class="py-2 px-4 border-b" >Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for post in posts %}
+                <tr>
+                    
+                        <td class="py-2 px-4 border-b"><a href="/post/{{post.slug}}">{{post.title}}</a></td>
+                        <td class="py-2 px-4 border-b" >{{post.body}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+</body>
+</html>
