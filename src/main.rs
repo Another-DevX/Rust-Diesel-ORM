@@ -4,7 +4,7 @@ extern crate diesel;
 pub mod models;
 pub mod schema;
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
 use tera::Tera;
 
 use dotenvy::dotenv;
@@ -90,6 +90,17 @@ async fn new_post(pool: web::Data<DbPool>, item: web::Json<NewPostHandler>) -> i
     }
 }
 
+#[delete("/delete/{post_id}")]
+async fn delete_post(pool: web::Data<DbPool>, post_id: web::Path<i32>) -> impl Responder {
+    let mut conn = pool.get().expect("Error while connecting to DB");
+    let post_id = post_id.into_inner();
+    match web::block(move || diesel::delete(posts.filter(id.eq(post_id))).execute(&mut conn)).await
+    {
+        Ok(data) => HttpResponse::Ok().body(format!("{:?}", data)),
+        Err(err) => HttpResponse::InternalServerError().body("Error al recibir los datos."),
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -108,6 +119,7 @@ async fn main() -> std::io::Result<()> {
             .service(index)
             .service(new_post)
             .service(get_post)
+            .service(delete_post)
             .app_data(web::Data::new(tera))
             .app_data(web::Data::new(pool.clone()))
     })

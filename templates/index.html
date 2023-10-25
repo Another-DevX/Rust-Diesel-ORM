@@ -1,30 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRUD</title>
     <script src="https://cdn.tailwindcss.com"></script>
+
 <body>
     <main class="w-screen  px-10 min-h-screen flex justify-center text-center flex-col gap-5 items-center bg-blue-200">
         <h1 class="text-3xl font-bold mb-4">Table</h1>
         <table class="min-w-full bg-white border border-gray-300" border="1">
             <thead>
                 <tr>
-                    <th class="py-2 px-4 border-b" >Title</th>
-                    <th class="py-2 px-4 border-b" >Description</th>
+                    <th class="py-2 px-4 border-b">Title</th>
+                    <th class="py-2 px-4 border-b">Description</th>
+                    <th class="py-2 px-4 border-b">Eliminate</th>
                 </tr>
             </thead>
             <tbody>
                 {% for post in posts %}
                 <tr>
-                    
-                        <td class="py-2 px-4 border-b"><a href="/post/{{post.slug}}">{{post.title}}</a></td>
-                        <td class="py-2 px-4 border-b" >{{post.body}}</td>
+
+                    <td class="py-2 px-4 border-b"><a href="/post/{{post.slug}}">{{post.title}}</a></td>
+                    <td class="py-2 px-4 border-b">{{post.body}}</td>
+                    <td class="py-2 px-4 border-b"><button name="{{post.id}}" id="eliminate">Eliminate</button></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </main>
+    <script>
+        // Función que hace una llamada API con un ID como parámetro
+        /**
+         * Realiza una llamada a una API para eliminar un recurso.
+         *
+         * @param {string} id - El ID del recurso a eliminar.
+         */
+        function callApiToDelete(id) {
+            fetch(`http://localhost:5173/delete/${id}`, {
+                method: 'DELETE',
+            })
+                .then(response => {
+                    alert('Post eliminated')
+                    window.location.href = "http://localhost:5173/"
+                }
+                )
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        }
+
+        // Añado un evento 'click' al botón
+        document.getElementById('eliminate').addEventListener('click', function (event) {
+            // Obtengo el valor del atributo 'name' del botón, que es el ID a enviar
+            const id = this.getAttribute('name');
+
+            // Llamo a la función para hacer la llamada API
+            callApiToDelete(id);
+        });
+    </script>
 </body>
+
 </html>
